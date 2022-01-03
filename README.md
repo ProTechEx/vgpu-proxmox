@@ -2,7 +2,7 @@
 
 This tutorial (and included patches) should allow you to use vGPU unlock on PVE 7.1 with the opt-in 5.15 Linux Kernel with a NVIDIA T1000 GPU. The GPU uses the TU117 Chip so other GPUs with the same Chip (T400, T600, GTX 1650 **NOT** Super) will probably work (no guarantees).
 
-### This tutorial assumes you are using a clean install of PVE 7.1, ymmv when using an existing installation. Make sure to always have backups!
+### This tutorial assumes you are using a clean install of PVE 7.1, or ymmv when using an existing installation. Make sure to always have backups!
 
 ## Packages
 
@@ -19,12 +19,12 @@ apt update
 apt dist-upgrade
 ```
 
-PVE 7.1 comes with version 5.13 of the Linux Kernel, that version is incompatible with vGPU so we have to install a newer version: The 5.15 Kernel will probably come with PVE 7.2 (~Q2 2022) but its opt-in on current PVE versions
+PVE 7.1 comes with version 5.13 of the Linux Kernel, that version is incompatible with vGPU. For this guide you will have to install version 5.15, which will probably come with PVE 7.2 (~Q2 2022) but is opt-in on current PVE versions
 ```bash
 apt install -y pve-kernel-5.15 pve-headers-5.15
 ```
 
-Now we need to install a few more packages like git, a compiler and some other tools
+Next we need to install a few more packages like git, a compiler and some other tools
 ```bash
 apt install -y git build-essential dkms jq pve-headers mdevctl
 ```
@@ -36,14 +36,14 @@ First, clone this repo to your home folder (in this case `/root/`)
 git clone https://gitlab.com/polloloco/vgpu-5.15.git
 ```
 
-We need two additional git repos for vGPU unlock
+Clone two additional git repos for vGPU unlock
 ```bash
 cd /opt
 git clone https://github.com/DualCoder/vgpu_unlock
 git clone https://github.com/mbilker/vgpu_unlock-rs
 ```
 
-After cloning those repos, install the rust compiler
+After that, install the rust compiler
 ```bash
 curl https://sh.rustup.rs -sSf | sh -s -- -y
 ```
@@ -53,7 +53,7 @@ Now make the rust binaries available in your $PATH (you only have to do it the f
 source $HOME/.cargo/env
 ```
 
-Enter the `vgpu_unlock-rs` directory and compile the library. Depending on your hardware and internet connection that may take a minute
+Enter the `vgpu_unlock-rs` directory and compile the library. Depending on your hardware and internet connection that may take a while
 ```bash
 cd vgpu_unlock-rs/
 cargo build --release
@@ -69,7 +69,7 @@ mkdir /etc/vgpu_unlock
 touch /etc/vgpu_unlock/profile_override.toml
 ```
 
-Then, create a few folders and files for systemd to load the vgpu_unlock-rs library when starting the nvidia vgpu services
+Then, create folders and files for systemd to load the vgpu_unlock-rs library when starting the nvidia vgpu services
 ```bash
 mkdir /etc/systemd/system/{nvidia-vgpud.service.d,nvidia-vgpu-mgr.service.d}
 echo -e "[Service]\nEnvironment=LD_PRELOAD=/opt/vgpu_unlock-rs/target/release/libvgpu_unlock_rs.so" > /etc/systemd/system/nvidia-vgpud.service.d/vgpu_unlock.conf
@@ -78,13 +78,13 @@ echo -e "[Service]\nEnvironment=LD_PRELOAD=/opt/vgpu_unlock-rs/target/release/li
 
 
 ## Enabling IOMMU
-#### Note: Usually this isn't required for vGPU to work, but it doesn't hurt to enable it. You can skip this section, but if you get any problems later on, make sure to enable IOMMU.
+#### Note: Usually this isn't required for vGPU to work, but it doesn't hurt to enable it. You can skip this section, but if you run into problems later on, make sure to enable IOMMU.
 
-Assuming you installed PVE with ZFS-on-root and efi, you are booting with systemd-boot. All other installations use grub. These instructions *ONLY* apply to systemd-boot, grub is different.
+Assuming you installed PVE with ZFS-on-root and efi, you are booting with systemd-boot. All other installations use grub. The following instructions *ONLY* apply to systemd-boot, grub is different.
 
-To enable IOMMU you have to enable it in your UEFI first. I will not provide instructions for that because its vendor specific, but usually for Intel systems the option you are looking for is called something like "Vt-d" and AMD systems tend to call it "IOMMU".
+To enable IOMMU you have to enable it in your UEFI first. Due to it being vendor specific, I am unable to provide instructions for that, but usually for Intel systems the option you are looking for is called something like "Vt-d", AMD systems tend to call it "IOMMU".
 
-After enabling it in your UEFI, you have to add some options to your kernel to enable it in proxmox. Edit the kernel command line like this
+After enabling IOMMU in your UEFI, you have to add some options to your kernel to enable it in proxmox. Edit the kernel command line like this
 ```bash
 nano /etc/kernel/cmdline
 ```
@@ -118,7 +118,7 @@ We have to load the `vfio`, `vfio_iommu_type1`, `vfio_pci` and `vfio_virqfd` ker
 echo -e "vfio\nvfio_iommu_type1\nvfio_pci\nvfio_virqfd" >> /etc/modules
 ```
 
-Proxmox comes with the open source nouveau driver for nvidia gpus, but we don't want that because we want to use our patched nvidia driver to enable vGPU, so we have to prevent that driver from loading
+Proxmox comes with the open source nouveau driver for nvidia gpus, however we have to use our patched nvidia driver to enable vGPU. The next line will prevent the nouveau driver from loading
 ```bash
 echo "blacklist nouveau" >> /etc/modprobe.d/blacklist.conf
 ```
@@ -138,7 +138,7 @@ reboot
 ## Check if IOMMU is enabled
 #### Note: See section "Enabling IOMMU", this is optional
 
-Wait for your server to come back up, then type this into a root shell
+Wait for your server to restart, then type this into a root shell
 ```bash
 dmesg | grep -e DMAR -e IOMMU
 ```
@@ -171,7 +171,7 @@ On my Intel system the output looks like this
 [    3.990175] i915 0000:00:02.0: [drm] DMAR active, disabling use of stolen memory
 ```
 
-Depending on your mainboard and cpu, the output will be different, but (for me) the important line is the third one: `DMAR: IOMMU enabled`. If you see that, IOMMU is enabled.
+Depending on your mainboard and cpu, the output will be different, in my output the important line is the third one: `DMAR: IOMMU enabled`. If you see something like that, IOMMU is enabled.
 
 ## NVIDIA Driver
 
@@ -179,9 +179,9 @@ Depending on your mainboard and cpu, the output will be different, but (for me) 
 
 This is the tricky part, at the time of writing (Jan 2022), there are three active branches of the NVIDIA vGPU driver. The latest is branch 13 (long term support branch until mid 2024) with driver version 470. I had no luck getting *any* version of that driver to work with vGPU at all but as always - ymmv.
 
-Branch 12 is a "regular" production branch with support until January of 2022 and has driver version number 460. Lots of people are running that driver in combination with the Linux Kernel 5.15. I got it installed with my gpu, but as soon as I try to use the gpu in my VM, the display would freeze every 30-ish seconds and `nvidia-vgpu-mgr.service` would report an error similar to `error: vmiop_log: (0x0): XID 43 detected on physical_chid:0x1c, guest_chid:0x14`. At first I thought I messed up some of the driver patches required to get the driver working on kernels newer than 5.11 - so I tried on PVE 6.4 without any patches (5.4 kernel) but got the same errors there. If anyone knows whats causing this error, or even how to fix it, **please** let me know :)
+Branch 12 is a "regular" production branch with support until January of 2022 and has driver version number 460. Lots of people are running that driver in combination with the Linux Kernel 5.15. I got it installed with my gpu, but as soon as I tried to use the gpu in my VM, the display would freeze every 30-ish seconds and `nvidia-vgpu-mgr.service` would report an error similar to `error: vmiop_log: (0x0): XID 43 detected on physical_chid:0x1c, guest_chid:0x14`. At first I thought I messed up some of the driver patches required to get the driver working on kernels newer than 5.11 - so I tried on PVE 6.4 without any patches (5.4 kernel) but got the same errors there. If anyone knows what's causing this error, or even how to fix it, **please** let me know :)
 
-Ruling out those two branches only leaves the older long term support branch 11: It is supported until mid 2023 and has the driver version 450. Like the other branch (12), you have to patch some parts of the driver to get it working on the Linux Kernel 5.15. I tried every patch I could find on the Internet (mostly twelve.patch and fourteen.patch and their variations) but no combination of them allowed me to install the driver - the installer would always complain about my system being incompatible. So I spent a few hours understanding the existing patches and reviewing the files they patch to finally come up with my own patch: Basically, it adapts twelve.patch and fourteen.patch to this older driver (they seem to be designed for the branch 12 driver) and merges them into a single patch.
+Ruling out those two branches only leaves the older long term support branch 11: It is supported until mid 2023 and has the driver version 450. Like the other branch (12), you have to patch some parts of the driver to get it working on the Linux Kernel 5.15. I tried every patch I could find on the Internet (mostly twelve.patch and fourteen.patch and their variations) but no combination of them allowed me to install the driver - the installer would always complain about my system being incompatible. So I spent a few hours looking at the existing patches and reviewing the files they patch to finally come up with my own patch: Basically, it adapts twelve.patch and fourteen.patch to this older driver (they seem to be designed for the branch 12 driver) and merges them into a single patch.
 
 ### Obtaining the driver
 
@@ -206,12 +206,12 @@ And then unpack it
 ./NVIDIA-Linux-x86_64-450.156-vgpu-kvm.run -x
 ```
 
-Enter the extracted folder
+Go inside the extracted folder
 ```bash
 cd NVIDIA-Linux-x86_64-450.156-vgpu-kvm/
 ```
 
-Its time to apply the driver patch to allow the installation on your proxmox host
+To be able to install the driver on your proxmox host, apply the driver patch
 ```bash
 patch -p0 < ~/vgpu-5.15/450_5.15.patch
 ```
@@ -241,16 +241,16 @@ patching file ./kernel/nvidia/os-interface.c
 
 ### Installing the driver
 
-Now that all the required patches are applies, you can install the driver
+Now that all the required patches are applied, you can install the driver
 ```bash
 ./nvidia-installer --dkms
 ```
 
 The installer will ask you `Would you like to register the kernel module sources with DKMS? This will allow DKMS to automatically build a new module, if you install a different kernel later.`, answer with `Yes`.
 
-Depending on your hardware, the installation could take a minute.
+Depending on your hardware, the installation could take a minute or two.
 
-If everything went right, you should get presented with this message.
+If everything went right, you will be presented with this message.
 ```
 Installation of the NVIDIA Accelerated Graphics Driver for Linux-x86_64 (version: 450.156) is now complete.
 ```
