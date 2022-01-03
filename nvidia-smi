@@ -1,0 +1,12 @@
+#!/usr/bin/bash
+
+for a in $*
+do
+  case $a in
+    vgpu)
+      export LD_PRELOAD="/opt/vgpu_unlock-rs/target/release/libvgpu_unlock_rs.so"
+      ;;
+  esac
+done
+
+exec /usr/bin/nvidia-smi $@
