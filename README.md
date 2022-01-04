@@ -177,7 +177,7 @@ Depending on your mainboard and cpu, the output will be different, in my output 
 
 ### Choosing the right driver version
 
-This is the tricky part, at the time of writing (Jan 2022), there are three active branches of the NVIDIA vGPU driver. The latest is branch 13 (long term support branch until mid 2024) with driver version 470. I had no luck getting *any* version of that driver to work with vGPU at all but as always - ymmv.
+This is the tricky part, at the time of writing (Jan 2022), there are [three active branches](https://docs.nvidia.com/grid/) of the NVIDIA vGPU driver. The latest is branch 13 (long term support branch until mid 2024) with driver version 470. I had no luck getting *any* version of that driver to work with vGPU at all but as always - ymmv.
 
 Branch 12 is a "regular" production branch with support until January of 2022 and has driver version number 460. Lots of people are running that driver in combination with the Linux Kernel 5.15. I got it installed with my gpu, but as soon as I tried to use the gpu in my VM, the display would freeze every 30-ish seconds and `nvidia-vgpu-mgr.service` would report an error similar to `error: vmiop_log: (0x0): XID 43 detected on physical_chid:0x1c, guest_chid:0x14`. At first I thought I messed up some of the driver patches required to get the driver working on kernels newer than 5.11 - so I tried on PVE 6.4 without any patches (5.4 kernel) but got the same errors there. If anyone knows what's causing this error, or even how to fix it, **please** let me know :)
 
@@ -354,9 +354,21 @@ Run this in your shell (you might have to logout and back in first) to see if it
 nvidia-smi vgpu
 ```
 
+## Credits
+
+Thanks to all these people (in no particular order) for making this project possible
+- [DualCoder](https://github.com/DualCoder) for his original [vgpu_unlock](https://github.com/DualCoder/vgpu_unlock) repo with the kernel hooks
+- [mbilker](https://github.com/mbilker) for the rust version, [vgpu_unlock-rs](https://github.com/mbilker/vgpu_unlock-rs)
+- [KrutavShah](https://github.com/KrutavShah) for the [wiki](https://krutavshah.github.io/GPU_Virtualization-Wiki/)
+- [HiFiPhile](https://github.com/HiFiPhile) for the [C version](https://gist.github.com/HiFiPhile/b3267ce1e93f15642ce3943db6e60776) of vgpu unlock
+- [rupansh](https://github.com/rupansh) for the original [twelve.patch](https://github.com/rupansh/vgpu_unlock_5.12/blob/master/twelve.patch) to patch the driver on kernels >= 5.12
+- mbuchel#1878 on the [GPU Unlocking discord](https://discord.gg/5rQsSV3Byq) for [fourteen.patch](https://gist.github.com/erin-allison/5f8acc33fa1ac2e4c0f77fdc5d0a3ed1) to patch the driver on kernels >= 5.14
+- [erin-allison](https://github.com/erin-allison) for the [nvidia-smi wrapper script](https://github.com/erin-allison/nvidia-merged-arch/blob/d2ce752cd38461b53b7e017612410a3348aa86e5/nvidia-smi)
+
+If I forgot to mention someone, please create an issue or let me know otherwise.
+
 ## TODO (soon tm)
 
-- Add references to vgpu projects
 - Add basic profile_override.toml config
 - Add proxmox VM installation guide
 
