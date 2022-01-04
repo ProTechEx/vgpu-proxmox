@@ -40,7 +40,7 @@ Clone two additional git repos for vGPU unlock
 ```bash
 cd /opt
 git clone https://github.com/DualCoder/vgpu_unlock
-git clone https://github.com/mbilker/vgpu_unlock-rs
+git clone https://github.com/p0lloloco/vgpu_unlock-rs
 ```
 
 After that, install the rust compiler
