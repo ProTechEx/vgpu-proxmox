@@ -1,8 +1,11 @@
-# NVIDIA vGPU on PVE 7.1 with a NVIDIA T1000 GPU
+# NVIDIA vGPU with the 510 driver
 
-This tutorial (and included patches) should allow you to use vGPU unlock on PVE 7.1 with the opt-in 5.15 Linux Kernel with a NVIDIA T1000 GPU. The GPU uses the TU117 Chip so other GPUs with the same Chip (T400, T600, GTX 1650 **NOT** Super) will probably work (no guarantees).
+Thanks to the great work of a `LIL'pingu` in the vgpu unlock discord we can finally use the (at the time of writing) latest NVIDIA GRID driver with the version number 510.47.03 with most consumer GPUs. Personally I have tested the T1000, a turing based card but others from the discord server got it working with a pascal based card as well.
 
-### This tutorial assumes you are using a clean install of PVE 7.1, or ymmv when using an existing installation. Make sure to always have backups!
+### This tutorial assumes you are using a clean install of Proxmox 7.1, or ymmv when using an existing installation. Make sure to always have backups!
+
+The patch included in this repository should work on other linux systems with kernel versions >= 5.13 but I have only tested it on proxmox.
+If you are not using proxmox, you have to adapt some parts of this tutorial to work for your distribution.
 
 ## Packages
 
@@ -19,27 +22,28 @@ apt update
 apt dist-upgrade
 ```
 
-PVE 7.1 comes with version 5.13 of the Linux Kernel, that version is incompatible with vGPU. For this guide you will have to install version 5.15, which will probably come with PVE 7.2 (~Q2 2022) but is opt-in on current PVE versions
+By default Proxmox 7.1 has the 5.13 kernel, but you can opt-in to the newer 5.15 version. Both versions work just fine for vGPU.
+
+If you didn't install a newer kernel on proxmox, then skip the following line. If you have the 5.15 kernel, it is required that you also install the corresponding kernel headers:
 ```bash
-apt install -y pve-kernel-5.15 pve-headers-5.15
+apt install -y pve-headers-5.15
 ```
 
-Next we need to install a few more packages like git, a compiler and some other tools
+Next we need to install a few more packages like git, a compiler and some other tools. This is required no matter which kernel version you are using.
 ```bash
-apt install -y git build-essential dkms jq pve-headers mdevctl
+apt install -y git build-essential dkms pve-headers mdevctl
 ```
 
-## Git repos and glorious [Rust](https://www.rust-lang.org/) compiler
+## Git repos and [Rust](https://www.rust-lang.org/) compiler
 
 First, clone this repo to your home folder (in this case `/root/`)
 ```bash
 git clone https://gitlab.com/polloloco/vgpu-5.15.git
 ```
 
-Clone two additional git repos for vGPU unlock
+You also need the vgpu_unlock-rs repo
 ```bash
 cd /opt
-git clone https://github.com/DualCoder/vgpu_unlock
 git clone https://github.com/p0lloloco/vgpu_unlock-rs
 ```
 
@@ -80,36 +84,81 @@ echo -e "[Service]\nEnvironment=LD_PRELOAD=/opt/vgpu_unlock-rs/target/release/li
 ## Enabling IOMMU
 #### Note: Usually this isn't required for vGPU to work, but it doesn't hurt to enable it. You can skip this section, but if you run into problems later on, make sure to enable IOMMU.
 
-Assuming you installed PVE with ZFS-on-root and efi, you are booting with systemd-boot. All other installations use grub. The following instructions *ONLY* apply to systemd-boot, grub is different.
+To enable IOMMU you have to enable it in your BIOS/UEFI first. Due to it being vendor specific, I am unable to provide instructions for that, but usually for Intel systems the option you are looking for is called something like "Vt-d", AMD systems tend to call it "IOMMU".
 
-To enable IOMMU you have to enable it in your UEFI first. Due to it being vendor specific, I am unable to provide instructions for that, but usually for Intel systems the option you are looking for is called something like "Vt-d", AMD systems tend to call it "IOMMU".
+After enabling it in your BIOS/UEFI, you also have to enable it in your kernel. Depending on how your system is booting, there are two ways to do that.
 
-After enabling IOMMU in your UEFI, you have to add some options to your kernel to enable it in proxmox. Edit the kernel command line like this
-```bash
-nano /etc/kernel/cmdline
-```
+If you installed your system with ZFS-on-root and in UEFI mode, then you are using systemd-boot, everything else is GRUB. GRUB is way more common so if you are unsure, you are probably using that.
 
-On a clean installation the file might look similar to this:
-```
-root=ZFS=rpool/ROOT/pve-1 boot=zfs
-```
+Depending on which system you are using to boot, you have to chose from the following two options:
 
-On Intel systems, append this line at the end
-```
-intel_iommu=on iommu=pt
-```
+<details>
+  <summary>GRUB</summary>
+  
+  Open the file `/etc/default/grub` in your favorite editor
+  ```bash
+  nano /etc/default/grub
+  ```
 
-For AMD, use this
-```
-amd_iommu=on iommu=pt
-```
+  The kernel parameters have to be appended to the variable `GRUB_CMDLINE_LINUX_DEFAULT`. On a clean installation that line should look like this
+  ```
+  GRUB_CMDLINE_LINUX_DEFAULT="quiet"
+  ```
 
-After editing the file, it should look similar to this
-```
-root=ZFS=rpool/ROOT/pve-1 boot=zfs intel_iommu=on iommu=pt
-```
+  If you are using an Intel system, append this after `quiet`:
+  ```
+  intel_iommu=on iommu=pt
+  ```
 
-Save and exit using Ctrl+O and then Ctrl+X
+  On AMD systems, append this after `quiet`:
+  ```
+  amd_iommu=on iommu=pt
+  ```
+
+  The result should look like this (for intel systems):
+  ```
+  GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"
+  ```
+
+  Now, save and exit from the editor using Ctrl+O and then Ctrl+X and then apply your changes:
+  ```bash
+  update-grub
+  ```
+</details>
+
+<details>
+  <summary>systemd-boot</summary>
+  
+  The kernel parameters have to be appended to the commandline in the file `/etc/kernel/cmdline`, so open that in your favorite editor:
+  ```bash
+  nano /etc/kernel/cmdline
+  ```
+
+  On a clean installation the file might look similar to this:
+  ```
+  root=ZFS=rpool/ROOT/pve-1 boot=zfs
+  ```
+
+  On Intel systems, append this at the end
+  ```
+  intel_iommu=on iommu=pt
+  ```
+
+  For AMD, use this
+  ```
+  amd_iommu=on iommu=pt
+  ```
+
+  After editing the file, it should look similar to this
+  ```
+  root=ZFS=rpool/ROOT/pve-1 boot=zfs intel_iommu=on iommu=pt
+  ```
+
+  Now, save and exit from the editor using Ctrl+O and then Ctrl+X and then apply your changes:
+  ```bash
+  proxmox-boot-tool refresh
+  ```
+</details>
 
 ## Loading required kernel modules and blacklisting the open source nvidia driver
 
@@ -123,11 +172,12 @@ Proxmox comes with the open source nouveau driver for nvidia gpus, however we ha
 echo "blacklist nouveau" >> /etc/modprobe.d/blacklist.conf
 ```
 
-## IMPORTANT: Apply our kernel configuration
-#### Note: This only applies to systemd-boot, if you are using grub, you can't use these instructions
+## Applying our kernel configuration
+
+I'm not sure if this is needed, but it doesn't hurt :)
 
 ```bash
-proxmox-boot-tool refresh
+update-initramfs -u -k all
 ```
 
 ...and reboot
@@ -175,75 +225,42 @@ Depending on your mainboard and cpu, the output will be different, in my output 
 
 ## NVIDIA Driver
 
-### Choosing the right driver version
-
-This is the tricky part, at the time of writing (Jan 2022), there are [three active branches](https://docs.nvidia.com/grid/) of the NVIDIA vGPU driver. The latest is branch 13 (long term support branch until mid 2024) with driver version 470. I had no luck getting *any* version of that driver to work with vGPU at all but as always - ymmv.
-
-Branch 12 is a "regular" production branch with support until January of 2022 and has driver version number 460. Lots of people are running that driver in combination with the Linux Kernel 5.15. I got it installed with my gpu, but as soon as I tried to use the gpu in my VM, the display would freeze every 30-ish seconds and `nvidia-vgpu-mgr.service` would report an error similar to `error: vmiop_log: (0x0): XID 43 detected on physical_chid:0x1c, guest_chid:0x14`. At first I thought I messed up some of the driver patches required to get the driver working on kernels newer than 5.11 - so I tried on PVE 6.4 without any patches (5.4 kernel) but got the same errors there. If anyone knows what's causing this error, or even how to fix it, **please** let me know :)
-
-Ruling out those two branches only leaves the older long term support branch 11: It is supported until mid 2023 and has the driver version 450. Like the other branch (12), you have to patch some parts of the driver to get it working on the Linux Kernel 5.15. I tried every patch I could find on the Internet (mostly twelve.patch and fourteen.patch and their variations) but no combination of them allowed me to install the driver - the installer would always complain about my system being incompatible. So I spent a few hours looking at the existing patches and reviewing the files they patch to finally come up with my own patch: Basically, it adapts twelve.patch and fourteen.patch to this older driver (they seem to be designed for the branch 12 driver) and merges them into a single patch.
+As of the time of this writing (March 2022), the latest available GRID driver is 14.0 with vGPU driver version 510.47.03. You can check for the latest version [here](https://docs.nvidia.com/grid/). I cannot guarantee that newer versions would work without additional patches, this tutorial only covers 14.0 (510.47.03).
 
 ### Obtaining the driver
 
-I will be using the latest driver from branch 11 (at the time of writing that would be 11.6 / 450.156).
-
 NVIDIA doesn't let you freely download vGPU drivers like they do with GeForce or normal Quadro drivers, instead you have to download them through the [NVIDIA Licensing Portal](https://nvid.nvidia.com/dashboard/) (see: [https://www.nvidia.com/en-us/drivers/vgpu-software-driver/](https://www.nvidia.com/en-us/drivers/vgpu-software-driver/)). You can sign up for a free evaluation to get access to the download page.
 
-After downloading version 11.6 you should have a zip file called `NVIDIA-GRID-Linux-KVM-450.156-450.156.00-453.23.zip`, extract that and copy the file `NVIDIA-Linux-x86_64-450.156-vgpu-kvm.run` to your PVE host into the `/root/` folder
+The file you are looking for is called `NVIDIA-GRID-Linux-KVM-510.47.03-511.65.zip`, you can get it from the download portal by downloading version 14.0 for `Linux KVM`.
+
+After downloading, extract that and copy the file `NVIDIA-Linux-x86_64-510.47.03-vgpu-kvm.run` to your Proxmox host into the `/root/` folder
 ```bash
-scp NVIDIA-Linux-x86_64-450.156-vgpu-kvm.run root@pve:/root/
+scp NVIDIA-Linux-x86_64-510.47.03-vgpu-kvm.run root@pve:/root/
 ```
 
 ### Patching the driver
 
 Now, on the proxmox host, make the driver executable
 ```bash
-chmod +x NVIDIA-Linux-x86_64-450.156-vgpu-kvm.run
+chmod +x NVIDIA-Linux-x86_64-510.47.03-vgpu-kvm.run
 ```
 
-And then unpack it
+And then patch it
 ```bash
-./NVIDIA-Linux-x86_64-450.156-vgpu-kvm.run -x
+./NVIDIA-Linux-x86_64-510.47.03-vgpu-kvm.run --apply-patch ~/vgpu-5.15/NVIDIA-Linux-x86_64-510.47.03-vgpu-kvm.patch
+```
+That should output a lot of lines ending with 
+```
+Self-extractible archive "NVIDIA-Linux-x86_64-510.47.03-vgpu-kvm-custom.run" successfully created.
 ```
 
-Go inside the extracted folder
-```bash
-cd NVIDIA-Linux-x86_64-450.156-vgpu-kvm/
-```
-
-To be able to install the driver on your proxmox host, apply the driver patch
-```bash
-patch -p0 < ~/vgpu-5.15/450_5.15.patch
-```
-
-If everything went right (and you are using the exact same nvidia driver version 11.6), the output should be exactly this
-```
-patching file ./kernel/Kbuild
-patching file ./kernel/conftest.sh
-patching file ./kernel/nvidia-vgpu-vfio/nvidia-vgpu-vfio.c
-patching file ./kernel/nvidia-vgpu-vfio/nvidia-vgpu-vfio.h
-patching file ./kernel/nvidia/nv-frontend.c
-```
-
-There is a second patch you need to apply.
-
-#### Warning: If you followed every step of this tutorial it should be safe to just apply it, but if you did anything different than I, you should check if the paths in the patch are valid for you.
-
-```bash
-patch -p0 < ~/vgpu-5.15/unlock.patch
-```
-
-The output should be exactly this
-```
-patching file ./kernel/nvidia/nvidia.Kbuild
-patching file ./kernel/nvidia/os-interface.c
-```
+You should now have a file called `NVIDIA-Linux-x86_64-510.47.03-vgpu-kvm-custom.run`, that is your patched driver.
 
 ### Installing the driver
 
-Now that all the required patches are applied, you can install the driver
+Now that the required patch is applied, you can install the driver
 ```bash
-./nvidia-installer --dkms
+./NVIDIA-Linux-x86_64-510.47.03-vgpu-kvm-custom.run --dkms
 ```
 
 The installer will ask you `Would you like to register the kernel module sources with DKMS? This will allow DKMS to automatically build a new module, if you install a different kernel later.`, answer with `Yes`.
@@ -252,7 +269,7 @@ Depending on your hardware, the installation could take a minute or two.
 
 If everything went right, you will be presented with this message.
 ```
-Installation of the NVIDIA Accelerated Graphics Driver for Linux-x86_64 (version: 450.156) is now complete.
+Installation of the NVIDIA Accelerated Graphics Driver for Linux-x86_64 (version: 510.47.03) is now complete.
 ```
 
 Click `Ok` to exit the installer.
@@ -271,16 +288,16 @@ nvidia-smi
 
 You should get an output similar to this one
 ```
-Mon Jan  3 20:41:15 2022
+Fri Mar 25 11:39:40 2022
 +-----------------------------------------------------------------------------+
-| NVIDIA-SMI 450.156      Driver Version: 450.156      CUDA Version: N/A      |
+| NVIDIA-SMI 510.47.03    Driver Version: 510.47.03    CUDA Version: N/A      |
 |-------------------------------+----------------------+----------------------+
 | GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
 | Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
 |                               |                      |               MIG M. |
 |===============================+======================+======================|
-|   0  T1000               On   | 00000000:01:00.0 Off |                  N/A |
-| 32%   39C    P8    N/A /  50W |     30MiB /  4095MiB |      0%      Default |
+|   0  NVIDIA T1000        On   | 00000000:01:00.0 Off |                  N/A |
+|  0%   36C    P8    N/A /  50W |     35MiB /  4096MiB |      0%      Default |
 |                               |                      |                  N/A |
 +-------------------------------+----------------------+----------------------+
 
@@ -332,14 +349,14 @@ No supported devices in vGPU mode
 
 With the wrapper script, the output looks similar to this
 ```
-Mon Jan  3 20:54:35 2022
+Fri Mar 25 11:40:18 2022
 +-----------------------------------------------------------------------------+
-| NVIDIA-SMI 450.156                Driver Version: 450.156                   |
+| NVIDIA-SMI 510.47.03              Driver Version: 510.47.03                 |
 |---------------------------------+------------------------------+------------+
 | GPU  Name                       | Bus-Id                       | GPU-Util   |
 |      vGPU ID     Name           | VM ID     VM Name            | vGPU-Util  |
 |=================================+==============================+============|
-|   0  T1000                      | 00000000:01:00.0             |   0%       |
+|   0  NVIDIA T1000               | 00000000:01:00.0             |   0%       |
 +---------------------------------+------------------------------+------------+
 ```
 
@@ -354,6 +371,108 @@ Run this in your shell (you might have to logout and back in first) to see if it
 nvidia-smi vgpu
 ```
 
+## vGPU overrides
+
+Further up we have created the file `/etc/vgpu_unlock/profile_override.toml` and I didn't explain what it was for yet. Using that file you can override lots of parameters for your vGPU instances: For example you can change the maximum resolution, enable/disable the frame rate limiter, enable/disable support for CUDA or change the vram size of your virtual gpus.
+
+If we take a look at the output of `mdevctl types` we see lots of different types that we can choose from. However, if we for example chose `GRID RTX6000-4Q` which gives us 4GB of vram in a VM, we are locked to that type for all of our VMs. Meaning we can only have 4GB VMs, its not possible to mix different types to have one 4GB VM, and two 2GB VMs.
+
+All of that changes with the override config file. Technically we are still locked to only using one profile, but now its possible to change the vram of the profile on a VM basis so even though we have three `GRID RTX6000-4Q` instances, one VM can have 4GB or vram but we can override the vram size for the other two VMs to only 2GB.
+
+Lets take a look at this example config override file (its in TOML format)
+```toml
+[profile.nvidia-259]
+num_displays = 1          # Max number of virtual displays. Usually 1 if you want a simple remote gaming VM
+display_width = 1920      # Maximum display width in the VM
+display_height = 1080     # Maximum display height in the VM
+max_pixels = 2073600      # This is the product of display_width and display_height so 1920 * 1080 = 2073600
+cuda_enabled = 1          # Enables CUDA support. Either 1 or 0 for enabled/disabled
+frl_enabled = 1           # This controls the frame rate limiter, if you enable it your fps in the VM get locked to 60fps. Either 1 or 0 for enabled/disabled
+framebuffer = 0x76000000  # VRAM size for the VM. In this case its 2GB
+                          # Other options:
+                          # 1GB: 0x3B000000
+                          # 2GB: 0x76000000
+                          # 3GB: 0xB1000000
+                          # 4GB: 0xEC000000
+                          # 8GB: 0x1D8000000
+                          # 16GB: 0x3B0000000
+
+[mdev.00000000-0000-0000-0000-000000000100]
+frl_enabled = 0
+# You can override all the options from above here too. If you want to add more overrides for a new VM, just copy this block and change the UUID
+```
+
+There are two blocks here, the first being `[profile.nvidia-259]` and the second `[mdev.00000000-0000-0000-0000-000000000100]`.
+The first one applies the overrides to all VM instances of the `nvidia-259` type (thats `GRID RTX6000-4Q`) and the second one applies its overrides only to one specific VM, that one with the uuid `00000000-0000-0000-0000-000000000100`.
+
+You don't have to specify all parameters, only the ones you need/want. There are some more that I didn't mention here, you can find them by going through the source code of the `vgpu_unlock-rs` repo.
+
+For a simple 1080p remote gaming VM I recommend going with something like this
+```toml
+[profile.nvidia-259] # choose the profile you want here
+num_displays = 1
+display_width = 1920
+display_height = 1080
+max_pixels = 2073600
+```
+
+### Spoofing your vGPU instance
+
+You can very easily spoof your virtual GPU to a different card, so that you could install normal quadro drivers instead of the GRID drivers that require licensing.
+
+For that you just have to add two lines to the override config. In this example I'm spoofing my Turing based card to a normal RTX 6000 Quadro card:
+```toml
+[profile.nvidia-259]
+# insert all of your other overrides here too
+pci_device_id = 0x1E30
+pci_id = 0x1E3012BA # This is not always required, see below
+```
+
+`pci_device_id` is the pci id from the card you want to spoof to. In my case its `0x1E30` which is the `Quadro RTX 6000/8000`.
+
+`pci_id` can be split in two parts: `0x1E30 12BA`, the first part `0x1E30` has to be the same as `pci_device_id`. The second part is the subdevice id. In my case `12BA` means its a RTX 6000 card and not RTX 8000.
+
+You can get the IDs from [here](https://pci-ids.ucw.cz/read/PC/10de/). Just Ctrl+F and search the card you want to spoof to, then copy the id it shows you on the left and use it for `pci_device_id`.
+
+After doing that, click the same id, it should open a new page where it lists the subsystems. If there are none listed, you can remove the `pci_id` entry from above. But if there are some, you have to select the one you want and use its id as the second value for `pci_id` (see above).
+
+## Adding a vGPU to a Proxmox VM
+
+There is only one thing you have to do from the commandline: Open the VM config file and give the VM a uuid.
+
+For that you need your VM ID, in this example I'm using `1000`.
+
+```bash
+nano /etc/pve/qemu-server/<VM-ID>.conf
+```
+
+So with the VM ID 1000, I have to do this:
+
+```bash
+nano /etc/pve/qemu-server/1000.conf
+```
+
+In that file, you have to add a new line at the end:
+```
+args: -uuid 00000000-0000-0000-0000-00000000XXXX
+```
+
+You have to replace `XXXX` with your VM ID. With my 1000 ID I have to use this line:
+```
+args: -uuid 00000000-0000-0000-0000-000000001000
+```
+
+Save and exit from the editor. Thats all you have to do from the terminal.
+
+Now go to the proxmox webinterface, go to your VM, then to `Hardware`, then to `Add` and select `PCI Device`.
+You should be able to choose from a list of pci devices. Choose your GPU there, its entry should say `Yes` in the `Mediated Devices` column.
+
+Now you should be able to also select the `MDev Type`. Choose whatever profile you want, if you don't remember which one you want, you can see the list of all available types with `mdevctl types`.
+
+Finish by clicking `Add`, start the VM and install the required drivers. After installing the drivers you can shut the VM down and remove the virtual display adapter by selecting `Display` in the `Hardware` section and selecting `none (none)`. ONLY do that if you have some other way to access the Virtual Machine like Parsec or Remote Desktop because the Proxmox Console won't work anymore.
+
+Enjoy your new vGPU VM :)
+
 ## Credits
 
 Thanks to all these people (in no particular order) for making this project possible
@@ -364,13 +483,9 @@ Thanks to all these people (in no particular order) for making this project poss
 - [rupansh](https://github.com/rupansh) for the original [twelve.patch](https://github.com/rupansh/vgpu_unlock_5.12/blob/master/twelve.patch) to patch the driver on kernels >= 5.12
 - mbuchel#1878 on the [GPU Unlocking discord](https://discord.gg/5rQsSV3Byq) for [fourteen.patch](https://gist.github.com/erin-allison/5f8acc33fa1ac2e4c0f77fdc5d0a3ed1) to patch the driver on kernels >= 5.14
 - [erin-allison](https://github.com/erin-allison) for the [nvidia-smi wrapper script](https://github.com/erin-allison/nvidia-merged-arch/blob/d2ce752cd38461b53b7e017612410a3348aa86e5/nvidia-smi)
+- LIL'pingu#9069 on the [GPU Unlocking discord](https://discord.gg/5rQsSV3Byq) for his patch to nop out code that NVIDIA added to prevent usage of drivers with a version >= 460 with consumer cards 
 
 If I forgot to mention someone, please create an issue or let me know otherwise.
-
-## TODO (soon tm)
-
-- Add basic profile_override.toml config
-- Add proxmox VM installation guide
 
 ## Contributing
 Pull requests are welcome (factual errors, amendments, grammar/spelling mistakes etc).
