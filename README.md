@@ -1,10 +1,12 @@
-# NVIDIA vGPU with the 510 driver
+# NVIDIA vGPU with the GRID 14.2 driver
 
-Thanks to the great work of a `LIL'pingu` in the vgpu unlock discord we can finally use the (at the time of writing) latest NVIDIA GRID driver with the version number 510.73.06 with most consumer GPUs. Personally I have tested the T1000, a turing based card but others from the discord server got it working with a pascal based card as well.
+A few days ago, NVIDIA released their latest enterprise GRID driver. I created a patch that allows the use of most consumer GPUs for vGPU. One notable exception from that list is every officially unsupported Ampere GPU.
+
+This guide and all my tests were done on a RTX 2080 Ti which is based on the Turing architechture.
 
 ### This tutorial assumes you are using a clean install of Proxmox 7.2, or ymmv when using an existing installation. Make sure to always have backups!
 
-The patch included in this repository should work on other linux systems with kernel versions >= 5.13 but I have only tested it on proxmox.
+The patch included in this repository should work on other linux systems with kernel versions 5.13 to 5.16 but I have only tested it on the current proxmox version.
 If you are not using proxmox, you have to adapt some parts of this tutorial to work for your distribution.
 
 ## Packages
@@ -31,7 +33,7 @@ apt install -y git build-essential dkms pve-headers mdevctl
 
 First, clone this repo to your home folder (in this case `/root/`)
 ```bash
-git clone https://gitlab.com/polloloco/vgpu-5.15.git
+git clone https://gitlab.com/polloloco/vgpu-proxmox.git
 ```
 
 You also need the vgpu_unlock-rs repo
@@ -218,42 +220,50 @@ Depending on your mainboard and cpu, the output will be different, in my output 
 
 ## NVIDIA Driver
 
-As of the time of this writing (June 2022), the latest available GRID driver is 14.1 with vGPU driver version 510.73.06. You can check for the latest version [here](https://docs.nvidia.com/grid/). I cannot guarantee that newer versions would work without additional patches, this tutorial only covers 14.1 (510.73.06).
+As of the time of this writing (August 2022), the latest available GRID driver is 14.2 with vGPU driver version 510.85.03. You can check for the latest version [here](https://docs.nvidia.com/grid/). I cannot guarantee that newer versions would work without additional patches, this tutorial only covers 14.2 (510.85.03).
 
 ### Obtaining the driver
 
 NVIDIA doesn't let you freely download vGPU drivers like they do with GeForce or normal Quadro drivers, instead you have to download them through the [NVIDIA Licensing Portal](https://nvid.nvidia.com/dashboard/) (see: [https://www.nvidia.com/en-us/drivers/vgpu-software-driver/](https://www.nvidia.com/en-us/drivers/vgpu-software-driver/)). You can sign up for a free evaluation to get access to the download page.
 
-The file you are looking for is called `NVIDIA-GRID-Linux-KVM-510.73.06-510.73.08-512.78.zip`, you can get it from the download portal by downloading version 14.1 for `Linux KVM`.
+NB: When applying for an eval license, do NOT use your personal email or other email at a free email provider like gmail.com. You will probably have to go through manual review if you use such emails. I have very good experience using a custom domain for my email address, that way the automatic verification usually lets me in after about five minutes.
 
-After downloading, extract that and copy the file `NVIDIA-Linux-x86_64-510.73.06-vgpu-kvm.run` to your Proxmox host into the `/root/` folder
+The file you are looking for is called `NVIDIA-GRID-Linux-KVM-510.85.03-510.85.02-513.46.zip`, you can get it from the download portal by downloading version 14.2 for `Linux KVM`.
+
+For those who want to find the file somewhere else, here are some checksums :)
+```
+sha1: 468912059ca86aaa737588c9b92a1f8bfaa071bd
+md5: bb330fa7f26e11bebeadefdee9c71e84
+```
+
+After downloading, extract that and copy the file `NVIDIA-Linux-x86_64-510.85.03-vgpu-kvm.run` to your Proxmox host into the `/root/` folder
 ```bash
-scp NVIDIA-Linux-x86_64-510.73.06-vgpu-kvm.run root@pve:/root/
+scp NVIDIA-Linux-x86_64-510.85.03-vgpu-kvm.run root@pve:/root/
 ```
 
 ### Patching the driver
 
 Now, on the proxmox host, make the driver executable
 ```bash
-chmod +x NVIDIA-Linux-x86_64-510.73.06-vgpu-kvm.run
+chmod +x NVIDIA-Linux-x86_64-510.85.03-vgpu-kvm.run
 ```
 
 And then patch it
 ```bash
-./NVIDIA-Linux-x86_64-510.73.06-vgpu-kvm.run --apply-patch ~/vgpu-5.15/NVIDIA-Linux-x86_64-510.73.06-vgpu-kvm.patch
+./NVIDIA-Linux-x86_64-510.85.03-vgpu-kvm.run --apply-patch ~/vgpu-proxmox/510.85.03.patch
 ```
 That should output a lot of lines ending with 
 ```
-Self-extractible archive "NVIDIA-Linux-x86_64-510.73.06-vgpu-kvm-custom.run" successfully created.
+Self-extractible archive "NVIDIA-Linux-x86_64-510.85.03-vgpu-kvm-custom.run" successfully created.
 ```
 
-You should now have a file called `NVIDIA-Linux-x86_64-510.73.06-vgpu-kvm-custom.run`, that is your patched driver.
+You should now have a file called `NVIDIA-Linux-x86_64-510.85.03-vgpu-kvm-custom.run`, that is your patched driver.
 
 ### Installing the driver
 
 Now that the required patch is applied, you can install the driver
 ```bash
-./NVIDIA-Linux-x86_64-510.73.06-vgpu-kvm-custom.run --dkms
+./NVIDIA-Linux-x86_64-510.85.03-vgpu-kvm-custom.run --dkms
 ```
 
 The installer will ask you `Would you like to register the kernel module sources with DKMS? This will allow DKMS to automatically build a new module, if you install a different kernel later.`, answer with `Yes`.
@@ -262,7 +272,7 @@ Depending on your hardware, the installation could take a minute or two.
 
 If everything went right, you will be presented with this message.
 ```
-Installation of the NVIDIA Accelerated Graphics Driver for Linux-x86_64 (version: 510.73.06) is now complete.
+Installation of the NVIDIA Accelerated Graphics Driver for Linux-x86_64 (version: 510.85.03) is now complete.
 ```
 
 Click `Ok` to exit the installer.
@@ -281,16 +291,16 @@ nvidia-smi
 
 You should get an output similar to this one
 ```
-Mon May 30 21:49:13 2022
+Sun Aug  7 21:26:58 2022
 +-----------------------------------------------------------------------------+
-| NVIDIA-SMI 510.73.06    Driver Version: 510.73.06    CUDA Version: N/A      |
+| NVIDIA-SMI 510.85.03    Driver Version: 510.85.03    CUDA Version: N/A      |
 |-------------------------------+----------------------+----------------------+
 | GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
 | Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
 |                               |                      |               MIG M. |
 |===============================+======================+======================|
-|   0  NVIDIA T1000        On   | 00000000:01:00.0 Off |                  N/A |
-|  0%   36C    P8    N/A /  50W |     35MiB /  4096MiB |      0%      Default |
+|   0  NVIDIA GeForce ...  On   | 00000000:01:00.0 Off |                  N/A |
+| 26%   33C    P8    43W / 260W |     85MiB / 11264MiB |      0%      Default |
 |                               |                      |                  N/A |
 +-------------------------------+----------------------+----------------------+
 
@@ -342,14 +352,14 @@ No supported devices in vGPU mode
 
 With the wrapper script, the output looks similar to this
 ```
-Mon May 30 22:31:22 2022
+Sun Aug  7 21:27:04 2022
 +-----------------------------------------------------------------------------+
-| NVIDIA-SMI 510.73.06              Driver Version: 510.73.06                 |
+| NVIDIA-SMI 510.85.03              Driver Version: 510.85.03                 |
 |---------------------------------+------------------------------+------------+
 | GPU  Name                       | Bus-Id                       | GPU-Util   |
 |      vGPU ID     Name           | VM ID     VM Name            | vGPU-Util  |
 |=================================+==============================+============|
-|   0  NVIDIA T1000               | 00000000:01:00.0             |   0%       |
+|   0  NVIDIA GeForce RTX 208...  | 00000000:01:00.0             |   0%       |
 +---------------------------------+------------------------------+------------+
 ```
 
@@ -412,6 +422,8 @@ max_pixels = 2073600
 ```
 
 ### Spoofing your vGPU instance
+
+#### Note: This only works on Windows guests, don't bother trying on Linux.
 
 You can very easily spoof your virtual GPU to a different card, so that you could install normal quadro drivers instead of the GRID drivers that require licensing.
 
