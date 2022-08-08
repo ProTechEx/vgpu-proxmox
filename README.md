@@ -365,7 +365,7 @@ Sun Aug  7 21:27:04 2022
 
 To install this script, copy the `nvidia-smi` file from this repo to `/usr/local/bin` and make it executable
 ```bash
-cp ~/vgpu-5.15/nvidia-smi /usr/local/bin/
+cp ~/vgpu-proxmox/nvidia-smi /usr/local/bin/
 chmod +x /usr/local/bin/nvidia-smi
 ```
 
