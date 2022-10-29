@@ -89,7 +89,7 @@ Depending on which system you are using to boot, you have to chose from the foll
 
 <details>
   <summary>GRUB</summary>
-  
+
   Open the file `/etc/default/grub` in your favorite editor
   ```bash
   nano /etc/default/grub
@@ -123,7 +123,7 @@ Depending on which system you are using to boot, you have to chose from the foll
 
 <details>
   <summary>systemd-boot</summary>
-  
+
   The kernel parameters have to be appended to the commandline in the file `/etc/kernel/cmdline`, so open that in your favorite editor:
   ```bash
   nano /etc/kernel/cmdline
@@ -252,7 +252,7 @@ And then patch it
 ```bash
 ./NVIDIA-Linux-x86_64-510.85.03-vgpu-kvm.run --apply-patch ~/vgpu-proxmox/510.85.03.patch
 ```
-That should output a lot of lines ending with 
+That should output a lot of lines ending with
 ```
 Self-extractible archive "NVIDIA-Linux-x86_64-510.85.03-vgpu-kvm-custom.run" successfully created.
 ```
@@ -432,7 +432,7 @@ For that you just have to add two lines to the override config. In this example 
 [profile.nvidia-259]
 # insert all of your other overrides here too
 pci_device_id = 0x1E30
-pci_id = 0x1E3012BA # This is not always required, see below
+pci_id = 0x1E3012BA
 ```
 
 `pci_device_id` is the pci id from the card you want to spoof to. In my case its `0x1E30` which is the `Quadro RTX 6000/8000`.
@@ -441,7 +441,7 @@ pci_id = 0x1E3012BA # This is not always required, see below
 
 You can get the IDs from [here](https://pci-ids.ucw.cz/read/PC/10de/). Just Ctrl+F and search the card you want to spoof to, then copy the id it shows you on the left and use it for `pci_device_id`.
 
-After doing that, click the same id, it should open a new page where it lists the subsystems. If there are none listed, you can remove the `pci_id` entry from above. But if there are some, you have to select the one you want and use its id as the second value for `pci_id` (see above).
+After doing that, click the same id, it should open a new page where it lists the subsystems. If there are none listed, you must use `0000` as the second value for `pci_id`. But if there are some, you have to select the one you want and use its id as the second value for `pci_id` (see above).
 
 ## Adding a vGPU to a Proxmox VM
 
@@ -490,7 +490,7 @@ Thanks to all these people (in no particular order) for making this project poss
 - [rupansh](https://github.com/rupansh) for the original [twelve.patch](https://github.com/rupansh/vgpu_unlock_5.12/blob/master/twelve.patch) to patch the driver on kernels >= 5.12
 - mbuchel#1878 on the [GPU Unlocking discord](https://discord.gg/5rQsSV3Byq) for [fourteen.patch](https://gist.github.com/erin-allison/5f8acc33fa1ac2e4c0f77fdc5d0a3ed1) to patch the driver on kernels >= 5.14
 - [erin-allison](https://github.com/erin-allison) for the [nvidia-smi wrapper script](https://github.com/erin-allison/nvidia-merged-arch/blob/d2ce752cd38461b53b7e017612410a3348aa86e5/nvidia-smi)
-- LIL'pingu#9069 on the [GPU Unlocking discord](https://discord.gg/5rQsSV3Byq) for his patch to nop out code that NVIDIA added to prevent usage of drivers with a version >= 460 with consumer cards 
+- LIL'pingu#9069 on the [GPU Unlocking discord](https://discord.gg/5rQsSV3Byq) for his patch to nop out code that NVIDIA added to prevent usage of drivers with a version >= 460 with consumer cards
 
 If I forgot to mention someone, please create an issue or let me know otherwise.
 
