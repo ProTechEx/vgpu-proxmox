@@ -443,6 +443,14 @@ You can get the IDs from [here](https://pci-ids.ucw.cz/read/PC/10de/). Just Ctrl
 
 After doing that, click the same id, it should open a new page where it lists the subsystems. If there are none listed, you must use `0000` as the second value for `pci_id`. But if there are some, you have to select the one you want and use its id as the second value for `pci_id` (see above).
 
+## Important note when spoofing
+
+When I originally wrote this guide, the latest quadro drivers were from the R510 branch, but nvidia has since released multiple drivers in the R515 and R520 branch, those will **NOT WORK** and maybe even make your VM crash.
+
+If you accidentally installed such a driver, its best to either remove the driver completely using DDU or just install a fresh windows VM.
+
+The quadro driver for R510 branch can be found [here (for 512.78)](https://www.nvidia.com/Download/driverResults.aspx/189361/en-us/) or [here (for 513.46)](https://www.nvidia.com/download/driverResults.aspx/191342/en-us/). I've had the best results with 512.78 but the other could work too. But anything newer than that, will **NOT WORK**.
+
 ## Adding a vGPU to a Proxmox VM
 
 There is only one thing you have to do from the commandline: Open the VM config file and give the VM a uuid.
