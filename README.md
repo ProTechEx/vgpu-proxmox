@@ -75,6 +75,14 @@ echo -e "[Service]\nEnvironment=LD_PRELOAD=/opt/vgpu_unlock-rs/target/release/li
 echo -e "[Service]\nEnvironment=LD_PRELOAD=/opt/vgpu_unlock-rs/target/release/libvgpu_unlock_rs.so" > /etc/systemd/system/nvidia-vgpu-mgr.service.d/vgpu_unlock.conf
 ```
 
+> ### Have a vgpu supported card? Read here!
+>
+> If you don't have a card like the Tesla P4, or any other gpu from [this list](https://docs.nvidia.com/grid/gpus-supported-by-vgpu.html), please continue reading at [Enabling IOMMU](#enabling-iommu)
+>
+> Disable the unlock part as doing this on a gpu that already supports vgpu, could break things as it introduces unnecessary complexity and more points of possible failure:
+> ```bash
+> echo "unlock = false" > /etc/vgpu_unlock/config.toml
+> ```
 
 ## Enabling IOMMU
 #### Note: Usually this isn't required for vGPU to work, but it doesn't hurt to enable it. You can skip this section, but if you run into problems later on, make sure to enable IOMMU.
@@ -241,6 +249,23 @@ After downloading, extract that and copy the file `NVIDIA-Linux-x86_64-510.85.03
 scp NVIDIA-Linux-x86_64-510.85.03-vgpu-kvm.run root@pve:/root/
 ```
 
+> ### Have a vgpu supported card? Read here!
+>
+> If you don't have a card like the Tesla P4, or any other gpu from [this list](https://docs.nvidia.com/grid/gpus-supported-by-vgpu.html), please continue reading at [Patching the driver](#patching-the-driver)
+>
+> With a supported gpu, patching the driver is not needed, so you should skip the next section. You can simply install the driver package like this:
+> ```bash
+> chmod +x NVIDIA-Linux-x86_64-510.85.03-vgpu-kvm.run
+> ./NVIDIA-Linux-x86_64-510.85.03-vgpu-kvm.run --dkms
+> ```
+>
+> To finish the installation, reboot the system
+> ```bash
+> reboot
+> ```
+>
+> Now, skip the following two sections and continue at [Finishing touches](#finishing-touches)
+
 ### Patching the driver
 
 Now, on the proxmox host, make the driver executable
@@ -342,6 +367,12 @@ The output will be similar to this
 If this command doesn't return any output, vGPU unlock isn't working.
 
 ### Bonus: working `nvidia-smi vgpu` command
+
+> ### Have a vgpu supported card? Read here!
+>
+> If you have a card like the Tesla P4, or any other gpu from [this list](https://docs.nvidia.com/grid/gpus-supported-by-vgpu.html), you should skip this section, as `nvidia-smi vgpu` is already working
+>
+> You should continue reading at [vGPU overrides](#vgpu-overrides)
 
 I've included an adapted version of the `nvidia-smi` [wrapper script](https://github.com/erin-allison/nvidia-merged-arch/blob/d2ce752cd38461b53b7e017612410a3348aa86e5/nvidia-smi) to get useful output from `nvidia-smi vgpu`.
 
