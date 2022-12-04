@@ -1,13 +1,24 @@
-# NVIDIA vGPU with the GRID 14.3 driver
+# NVIDIA vGPU with the GRID 15.0 driver
 
-A few days ago, NVIDIA released their latest enterprise GRID driver. I created a patch that allows the use of most consumer GPUs for vGPU. One notable exception from that list is every officially unsupported Ampere GPU.
+Two days ago, NVIDIA released their latest enterprise GRID driver. I created a patch that allows the use of most consumer GPUs for vGPU. One notable exception from that list is every officially unsupported Ampere GPU and GPUs from the Ada Lovelace generation.
 
 This guide and all my tests were done on a RTX 2080 Ti which is based on the Turing architechture.
 
 ### This tutorial assumes you are using a clean install of Proxmox 7.3, or ymmv when using an existing installation. Make sure to always have backups!
 
-The patch included in this repository should work on other linux systems with kernel versions 5.13 to 5.16 but I have only tested it on the current proxmox version.
+This guide should work for other linux systems with a recent kernel (5.15 to 5.19) but I have only tested it on the current proxmox version.
 If you are not using proxmox, you have to adapt some parts of this tutorial to work for your distribution.
+
+> # Are you upgrading from a previous version of this guide?
+>
+> If you are upgrading from a previous version of this guide, you should uninstall the old driver first:
+> ```
+> nvidia-uninstall
+> ```
+>
+> Then you also have to make sure that you are using the latest version of `vgpu_unlock-rs`, otherwise it won't work with the latest driver.
+>
+> Either delete the folder `/opt/vgpu_unlock-rs` or enter the folder and run `git pull` and then recompile the library again using `cargo build --release`
 
 ## Packages
 
@@ -228,7 +239,7 @@ Depending on your mainboard and cpu, the output will be different, in my output 
 
 ## NVIDIA Driver
 
-As of the time of this writing (November 2022), the latest available GRID driver is 14.3 with vGPU driver version 510.108.03. You can check for the latest version [here](https://docs.nvidia.com/grid/). I cannot guarantee that newer versions would work without additional patches, this tutorial only covers 14.3 (510.108.03).
+As of the time of this writing (December 2022), the latest available GRID driver is 15.0 with vGPU driver version 525.60.12. You can check for the latest version [here](https://docs.nvidia.com/grid/). I cannot guarantee that newer versions would work without additional patches, the patch in this guide works **ONLY** on 15.0 (525.60.12).
 
 ### Obtaining the driver
 
@@ -236,17 +247,17 @@ NVIDIA doesn't let you freely download vGPU drivers like they do with GeForce or
 
 NB: When applying for an eval license, do NOT use your personal email or other email at a free email provider like gmail.com. You will probably have to go through manual review if you use such emails. I have very good experience using a custom domain for my email address, that way the automatic verification usually lets me in after about five minutes.
 
-The file you are looking for is called `NVIDIA-GRID-Linux-KVM-510.108.03-513.91.zip`, you can get it from the download portal by downloading version 14.3 for `Linux KVM`.
+The file you are looking for is called `NVIDIA-GRID-Linux-KVM-525.60.12-525.60.13-527.41.zip`, you can get it from the download portal by downloading version 14.3 for `Linux KVM`.
 
 For those who want to find the file somewhere else, here are some checksums :)
 ```
-sha1: ec82f7d197a5ea583d7b083dfd3a31fe8748aaa8
-md5: 3aea33ebc972a9dfa643d8e5e89ba5ef
+sha1: e4147e1dcebfc5459759ea013b56bca1d30f3578
+md5: 0e2be7de643b99a62a1cca6ca37fd1ee
 ```
 
-After downloading, extract that and copy the file `NVIDIA-Linux-x86_64-510.108.03-vgpu-kvm.run` to your Proxmox host into the `/root/` folder
+After downloading, extract that and copy the file `NVIDIA-Linux-x86_64-525.60.12-vgpu-kvm.run` to your Proxmox host into the `/root/` folder
 ```bash
-scp NVIDIA-Linux-x86_64-510.108.03-vgpu-kvm.run root@pve:/root/
+scp NVIDIA-Linux-x86_64-525.60.12-vgpu-kvm.run root@pve:/root/
 ```
 
 > ### Have a vgpu supported card? Read here!
@@ -255,8 +266,8 @@ scp NVIDIA-Linux-x86_64-510.108.03-vgpu-kvm.run root@pve:/root/
 >
 > With a supported gpu, patching the driver is not needed, so you should skip the next section. You can simply install the driver package like this:
 > ```bash
-> chmod +x NVIDIA-Linux-x86_64-510.108.03-vgpu-kvm.run
-> ./NVIDIA-Linux-x86_64-510.108.03-vgpu-kvm.run --dkms
+> chmod +x NVIDIA-Linux-x86_64-525.60.12-vgpu-kvm.run
+> ./NVIDIA-Linux-x86_64-525.60.12-vgpu-kvm.run --dkms
 > ```
 >
 > To finish the installation, reboot the system
@@ -270,25 +281,25 @@ scp NVIDIA-Linux-x86_64-510.108.03-vgpu-kvm.run root@pve:/root/
 
 Now, on the proxmox host, make the driver executable
 ```bash
-chmod +x NVIDIA-Linux-x86_64-510.108.03-vgpu-kvm.run
+chmod +x NVIDIA-Linux-x86_64-525.60.12-vgpu-kvm.run
 ```
 
 And then patch it
 ```bash
-./NVIDIA-Linux-x86_64-510.108.03-vgpu-kvm.run --apply-patch ~/vgpu-proxmox/510.108.03.patch
+./NVIDIA-Linux-x86_64-525.60.12-vgpu-kvm.run --apply-patch ~/vgpu-proxmox/525.60.12.patch
 ```
 That should output a lot of lines ending with
 ```
-Self-extractible archive "NVIDIA-Linux-x86_64-510.108.03-vgpu-kvm-custom.run" successfully created.
+Self-extractible archive "NVIDIA-Linux-x86_64-525.60.12-vgpu-kvm-custom.run" successfully created.
 ```
 
-You should now have a file called `NVIDIA-Linux-x86_64-510.108.03-vgpu-kvm-custom.run`, that is your patched driver.
+You should now have a file called `NVIDIA-Linux-x86_64-525.60.12-vgpu-kvm-custom.run`, that is your patched driver.
 
 ### Installing the driver
 
 Now that the required patch is applied, you can install the driver
 ```bash
-./NVIDIA-Linux-x86_64-510.108.03-vgpu-kvm-custom.run --dkms
+./NVIDIA-Linux-x86_64-525.60.12-vgpu-kvm-custom.run --dkms
 ```
 
 The installer will ask you `Would you like to register the kernel module sources with DKMS? This will allow DKMS to automatically build a new module, if you install a different kernel later.`, answer with `Yes`.
@@ -297,7 +308,7 @@ Depending on your hardware, the installation could take a minute or two.
 
 If everything went right, you will be presented with this message.
 ```
-Installation of the NVIDIA Accelerated Graphics Driver for Linux-x86_64 (version: 510.108.03) is now complete.
+Installation of the NVIDIA Accelerated Graphics Driver for Linux-x86_64 (version: 525.60.12) is now complete.
 ```
 
 Click `Ok` to exit the installer.
@@ -316,9 +327,9 @@ nvidia-smi
 
 You should get an output similar to this one
 ```
-Thu Nov 24 21:39:42 2022
+Sun Dec  4 12:54:59 2022
 +-----------------------------------------------------------------------------+
-| NVIDIA-SMI 510.108.03   Driver Version: 510.108.03   CUDA Version: N/A      |
+| NVIDIA-SMI 525.60.12    Driver Version: 525.60.12    CUDA Version: N/A      |
 |-------------------------------+----------------------+----------------------+
 | GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
 | Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
@@ -373,9 +384,9 @@ nvidia-smi vgpu
 
 If everything worked right with the unlock, the output should be similar to this:
 ```
-Thu Nov 24 21:29:52 2022
+Sun Dec  4 12:55:09 2022
 +-----------------------------------------------------------------------------+
-| NVIDIA-SMI 510.108.03             Driver Version: 510.108.03                |
+| NVIDIA-SMI 525.60.12              Driver Version: 525.60.12                 |
 |---------------------------------+------------------------------+------------+
 | GPU  Name                       | Bus-Id                       | GPU-Util   |
 |      vGPU ID     Name           | VM ID     VM Name            | vGPU-Util  |
@@ -464,11 +475,11 @@ After doing that, click the same id, it should open a new page where it lists th
 
 ## Important note when spoofing
 
-When I originally wrote this guide, the latest quadro drivers were from the R510 branch, but nvidia has since released multiple drivers in the R515 and R520 branch, those will **NOT WORK** and maybe even make your VM crash.
+You have to pick a Quadro Driver from the same driver branch, so in this case R525. Using newer drivers will **NOT WORK** and maybe even make your VM crash.
 
 If you accidentally installed such a driver, its best to either remove the driver completely using DDU or just install a fresh windows VM.
 
-The quadro driver for R510 branch can be found [here (for 512.78)](https://www.nvidia.com/Download/driverResults.aspx/189361/en-us/) or [here (for 513.46)](https://www.nvidia.com/download/driverResults.aspx/191342/en-us/). I've had the best results with 512.78 but the other could work too. But anything newer than that, will **NOT WORK**.
+The quadro driver for R525 branch can be found [here (for 527.27)](https://www.nvidia.com/Download/driverResults.aspx/196728/en-us/).
 
 ## Adding a vGPU to a Proxmox VM
 
@@ -512,6 +523,7 @@ Enjoy your new vGPU VM :)
 If something isn't working, please create an issue or join the [Discord server](https://discord.gg/5rQsSV3Byq) and ask for help in the `#proxmox-support` channel.
 
 When asking for help, please describe your problem in detail instead of just saying "vgpu doesn't work". Usually a rough overview over your system (gpu, mainboard, proxmox version, kernel version, ...) and full output of `dmesg` and/or `journalctl --no-pager -b 0 -u nvidia-vgpu-mgr.service` (<-- this only after starting the VM that causes trouble) is helpful.
+Please also provide the output of `uname -a` and `cat /proc/cmdline`
 
 ## Further reading
 
