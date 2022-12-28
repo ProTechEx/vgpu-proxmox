@@ -249,6 +249,8 @@ NB: When applying for an eval license, do NOT use your personal email or other e
 
 The file you are looking for is called `NVIDIA-GRID-Linux-KVM-525.60.12-525.60.13-527.41.zip`, you can get it from the download portal by downloading version 15.0 for `Linux KVM`.
 
+![Video Tutorial to find the right driver](downloading_driver.mp4)
+
 For those who want to find the file somewhere else, here are some checksums :)
 ```
 sha1: e4147e1dcebfc5459759ea013b56bca1d30f3578
