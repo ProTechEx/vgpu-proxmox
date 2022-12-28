@@ -247,7 +247,7 @@ NVIDIA doesn't let you freely download vGPU drivers like they do with GeForce or
 
 NB: When applying for an eval license, do NOT use your personal email or other email at a free email provider like gmail.com. You will probably have to go through manual review if you use such emails. I have very good experience using a custom domain for my email address, that way the automatic verification usually lets me in after about five minutes.
 
-The file you are looking for is called `NVIDIA-GRID-Linux-KVM-525.60.12-525.60.13-527.41.zip`, you can get it from the download portal by downloading version 14.3 for `Linux KVM`.
+The file you are looking for is called `NVIDIA-GRID-Linux-KVM-525.60.12-525.60.13-527.41.zip`, you can get it from the download portal by downloading version 15.0 for `Linux KVM`.
 
 For those who want to find the file somewhere else, here are some checksums :)
 ```
