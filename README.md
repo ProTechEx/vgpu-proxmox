@@ -423,16 +423,11 @@ display_height = 1080     # Maximum display height in the VM
 max_pixels = 2073600      # This is the product of display_width and display_height so 1920 * 1080 = 2073600
 cuda_enabled = 1          # Enables CUDA support. Either 1 or 0 for enabled/disabled
 frl_enabled = 1           # This controls the frame rate limiter, if you enable it your fps in the VM get locked to 60fps. Either 1 or 0 for enabled/disabled
-framebuffer = 0x76000000  # VRAM size for the VM. In this case its 2GB
-                          # Other options:
-                          # 1GB: 0x3B000000
-                          # 2GB: 0x76000000
-                          # 3GB: 0xB1000000
-                          # 4GB: 0xEC000000
-                          # 8GB: 0x1D8000000
-                          # 16GB: 0x3B0000000
-                          # These numbers may not be accurate for you, but you can always calculate the right number like this:
-                          # The amount of VRAM in your VM = `framebuffer` + `framebuffer_reservation`
+framebuffer = 0x74000000
+framebuffer_reservation = 0xC000000   # In combination with the framebuffer size
+                                      # above, these two lines will give you a VM
+                                      # with 2GB of VRAM (framebuffer + framebuffer_reservation = VRAM size in bytes).
+                                      # See below for some other sizes
 
 [mdev.00000000-0000-0000-0000-000000000100]
 frl_enabled = 0
@@ -452,6 +447,88 @@ display_width = 1920
 display_height = 1080
 max_pixels = 2073600
 ```
+
+### Common VRAM sizes
+
+Here are some common framebuffer sizes that you might want to use:
+
+- 512MB:
+  ```toml
+  framebuffer = 0x1A000000
+  framebuffer_reservation = 0x6000000
+  ```
+- 1GB:
+  ```toml
+  framebuffer = 0x38000000
+  framebuffer_reservation = 0x8000000
+  ```
+- 2GB:
+  ```toml
+  framebuffer = 0x74000000
+  framebuffer_reservation = 0xC000000
+  ```
+- 3GB:
+  ```toml
+  framebuffer = 0xB0000000
+  framebuffer_reservation = 0x10000000
+  ```
+- 4GB:
+  ```toml
+  framebuffer = 0xEC000000
+  framebuffer_reservation = 0x14000000
+  ```
+- 5GB:
+  ```toml
+  framebuffer = 0x128000000
+  framebuffer_reservation = 0x18000000
+  ```
+- 6GB:
+  ```toml
+  framebuffer = 0x164000000
+  framebuffer_reservation = 0x1C000000
+  ```
+- 8GB:
+  ```toml
+  framebuffer = 0x1DC000000
+  framebuffer_reservation = 0x24000000
+  ```
+- 10GB:
+  ```toml
+  framebuffer = 0x254000000
+  framebuffer_reservation = 0x2C000000
+  ```
+- 12GB:
+  ```toml
+  framebuffer = 0x2CC000000
+  framebuffer_reservation = 0x34000000
+  ```
+- 16GB:
+  ```toml
+  framebuffer = 0x3BA400000
+  framebuffer_reservation = 0x45C00000
+  ```
+- 20GB:
+  ```toml
+  framebuffer = 0x4AC000000
+  framebuffer_reservation = 0x54000000
+  ```
+- 24GB:
+  ```toml
+  framebuffer = 0x59C000000
+  framebuffer_reservation = 0x64000000
+  ```
+- 32GB:
+  ```toml
+  framebuffer = 0x77C000000
+  framebuffer_reservation = 0x84000000
+  ```
+- 48GB:
+  ```toml
+  framebuffer = 0xB2D200000
+  framebuffer_reservation = 0xD2E00000
+  ```
+
+`framebuffer` and `framebuffer_reservation` will always equal the VRAM size in bytes when added together.
 
 ### Spoofing your vGPU instance
 
