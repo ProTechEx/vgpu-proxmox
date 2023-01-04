@@ -504,8 +504,8 @@ Here are some common framebuffer sizes that you might want to use:
   ```
 - 16GB:
   ```toml
-  framebuffer = 0x3BA400000
-  framebuffer_reservation = 0x45C00000
+  framebuffer = 0x3BC000000
+  framebuffer_reservation = 0x44000000
   ```
 - 20GB:
   ```toml
