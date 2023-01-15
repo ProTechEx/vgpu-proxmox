@@ -1,6 +1,8 @@
-# NVIDIA vGPU with the GRID 15.0 driver
+# NVIDIA vGPU with the GRID 15.0 driver on Proxmox
 
-Two days ago, NVIDIA released their latest enterprise GRID driver. I created a patch that allows the use of most consumer GPUs for vGPU. One notable exception from that list is every officially unsupported Ampere GPU and GPUs from the Ada Lovelace generation.
+In december 2022, NVIDIA released their latest enterprise GRID driver. I created a patch that allows the use of most consumer GPUs for vGPU. One notable exception from that list is every officially unsupported Ampere GPU and GPUs from the Ada Lovelace generation.
+
+> ## !!! YOUR RTX 30XX OR 40XX WILL NOT WORK AT THIS POINT IN TIME !!!
 
 This guide and all my tests were done on a RTX 2080 Ti which is based on the Turing architechture.
 
@@ -55,7 +57,7 @@ git clone https://github.com/mbilker/vgpu_unlock-rs.git
 
 After that, install the rust compiler
 ```bash
-curl https://sh.rustup.rs -sSf | sh -s -- -y
+curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal
 ```
 
 Now make the rust binaries available in your $PATH (you only have to do it the first time after installing rust)
@@ -408,9 +410,13 @@ Further up we have created the file `/etc/vgpu_unlock/profile_override.toml` and
 
 If we take a look at the output of `mdevctl types` we see lots of different types that we can choose from. However, if we for example chose `GRID RTX6000-4Q` which gives us 4GB of vram in a VM, we are locked to that type for all of our VMs. Meaning we can only have 4GB VMs, its not possible to mix different types to have one 4GB VM, and two 2GB VMs.
 
-> ### Important note
+> ### Important notes
+>
+> Q profiles *can* give you horrible performance in OpenGL applications/games. To fix that, switch to an equivalent A or B profile (for example `GRID RTX6000-4B`)
 >
 > C profiles (for example `GRID RTX6000-4C`) only work on Linux, don't try using those on Windows, it will not work - at all.
+>
+> A profiles (for example `GRID RTX6000-4A`) will NOT work on Linux, they only work on Windows.
 
 All of that changes with the override config file. Technically we are still locked to only using one profile, but now its possible to change the vram of the profile on a VM basis so even though we have three `GRID RTX6000-4Q` instances, one VM can have 4GB or vram but we can override the vram size for the other two VMs to only 2GB.
 
@@ -429,13 +435,15 @@ framebuffer_reservation = 0xC000000   # In combination with the framebuffer size
                                       # with 2GB of VRAM (framebuffer + framebuffer_reservation = VRAM size in bytes).
                                       # See below for some other sizes
 
-[mdev.00000000-0000-0000-0000-000000000100]
+[vm.100]
 frl_enabled = 0
-# You can override all the options from above here too. If you want to add more overrides for a new VM, just copy this block and change the UUID
+# You can override all the options from above here too. If you want to add more overrides for a new VM, just copy this block and change the VM ID
 ```
 
-There are two blocks here, the first being `[profile.nvidia-259]` and the second `[mdev.00000000-0000-0000-0000-000000000100]`.
-The first one applies the overrides to all VM instances of the `nvidia-259` type (thats `GRID RTX6000-4Q`) and the second one applies its overrides only to one specific VM, that one with the uuid `00000000-0000-0000-0000-000000000100`.
+There are two blocks here, the first being `[profile.nvidia-259]` and the second `[vm.100]`.
+The first one applies the overrides to all VM instances of the `nvidia-259` type (thats `GRID RTX6000-4Q`) and the second one applies its overrides only to one specific VM, that one with the proxmox VM ID `100`.
+
+The proxmox VM ID is the same number that you see in the proxmox webinterface, next to the VM name.
 
 You don't have to specify all parameters, only the ones you need/want. There are some more that I didn't mention here, you can find them by going through the source code of the `vgpu_unlock-rs` repo.
 
@@ -560,35 +568,15 @@ If you accidentally installed such a driver, its best to either remove the drive
 
 The quadro driver for R525 branch can be found [here (for 527.27)](https://www.nvidia.com/Download/driverResults.aspx/196728/en-us/).
 
+## Drawbacks to spoofing
+
+- You do not have **ANY** CUDA support
+- It only works for Windows VMs
+- FRL (Framerate limiter) does not work, so no matter what settings you use for `frl_config`, it doesn't apply
+
 ## Adding a vGPU to a Proxmox VM
 
-There is only one thing you have to do from the commandline: Open the VM config file and give the VM a uuid.
-
-For that you need your VM ID, in this example I'm using `1000`.
-
-```bash
-nano /etc/pve/qemu-server/<VM-ID>.conf
-```
-
-So with the VM ID 1000, I have to do this:
-
-```bash
-nano /etc/pve/qemu-server/1000.conf
-```
-
-In that file, you have to add a new line at the end:
-```
-args: -uuid 00000000-0000-0000-0000-00000000XXXX
-```
-
-You have to replace `XXXX` with your VM ID. With my 1000 ID I have to use this line:
-```
-args: -uuid 00000000-0000-0000-0000-000000001000
-```
-
-Save and exit from the editor. Thats all you have to do from the terminal.
-
-Now go to the proxmox webinterface, go to your VM, then to `Hardware`, then to `Add` and select `PCI Device`.
+Go to the proxmox webinterface, go to your VM, then to `Hardware`, then to `Add` and select `PCI Device`.
 You should be able to choose from a list of pci devices. Choose your GPU there, its entry should say `Yes` in the `Mediated Devices` column.
 
 Now you should be able to also select the `MDev Type`. Choose whatever profile you want, if you don't remember which one you want, you can see the list of all available types with `mdevctl types`.
@@ -597,9 +585,25 @@ Finish by clicking `Add`, start the VM and install the required drivers. After i
 
 Enjoy your new vGPU VM :)
 
+## Common problems
+
+Most problems can be solved by reading the instructions very carefully. For some very common problems, read here:
+
+- The nvidia driver won't install/load
+  - If you were using gpu passthrough before, revert **ALL** of the steps you did or start with a fresh proxmox installation. If you run `lspci -knnd 10de:` and see `vfio-pci` under `Kernel driver in use:` then you have to fix that
+  - Make sure that you are using a supported kernel version (check `uname -a`)
+- My OpenGL performance is absolute garbage, what can I do?
+  - Read [here](#important-notes)
+- `mdevctl types` doesn't output anything, how to fix it?
+  - Make sure that you don't have unlock disabled if you have a consumer gpu ([more information](#have-a-vgpu-supported-card-read-here))
+- vGPU doesn't work on my RTX 3080! What to do?
+  - [Learn to read](#your-rtx-30xx-or-40xx-will-not-work-at-this-point-in-time)
+
 ## Support
 
-If something isn't working, please create an issue or join the [Discord server](https://discord.gg/5rQsSV3Byq) and ask for help in the `#proxmox-support` channel.
+If something isn't working, please create an issue or join the [Discord server](https://discord.gg/5rQsSV3Byq) and ask for help in the `#proxmox-support` channel so that the community can help you.
+
+> ### DO NOT SEND ME A DM, I'M NOT YOUR PERSONAL SUPPORT
 
 When asking for help, please describe your problem in detail instead of just saying "vgpu doesn't work". Usually a rough overview over your system (gpu, mainboard, proxmox version, kernel version, ...) and full output of `dmesg` and/or `journalctl --no-pager -b 0 -u nvidia-vgpu-mgr.service` (<-- this only after starting the VM that causes trouble) is helpful.
 Please also provide the output of `uname -a` and `cat /proc/cmdline`
