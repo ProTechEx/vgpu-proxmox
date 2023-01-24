@@ -638,6 +638,10 @@ If something isn't working, please create an issue or join the [Discord server](
 When asking for help, please describe your problem in detail instead of just saying "vgpu doesn't work". Usually a rough overview over your system (gpu, mainboard, proxmox version, kernel version, ...) and full output of `dmesg` and/or `journalctl --no-pager -b 0 -u nvidia-vgpu-mgr.service` (<-- this only after starting the VM that causes trouble) is helpful.
 Please also provide the output of `uname -a` and `cat /proc/cmdline`
 
+## Feed my coffee addiction ☕
+
+If you found this guide helpful and want to support me, please feel free to [buy me a coffee](https://www.buymeacoffee.com/polloloco). Thank you very much!
+
 ## Further reading
 
 Thanks to all these people (in no particular order) for making this project possible
