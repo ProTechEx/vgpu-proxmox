@@ -1,6 +1,8 @@
 # NVIDIA vGPU on Proxmox
 
-This document serves as a guide to install NVIDIA vGPU host drivers on the latest Proxmox VE version, at time of writing this its pve 7.3.
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/polloloco)
+
+This document serves as a guide to install NVIDIA vGPU host drivers on the latest Proxmox VE version, at time of writing this its pve 7.4.
 
 You can follow this guide if you have a vGPU supported card from [this list](https://docs.nvidia.com/grid/gpus-supported-by-vgpu.html), or if you are using a consumer GPU from the GeForce series or a non-vGPU qualified Quadro GPU. There are several sections with a title similar to "Have a vGPU supported GPU? Read here" in this document, make sure to read those very carefully as this is where the instructions differ for a vGPU qualified card and a consumer card.
 
@@ -18,11 +20,12 @@ If you have GPUs from the Ampere and Ada Lovelace generation, you are out of luc
 This guide and all my tests were done on a RTX 2080 Ti which is based on the Turing architechture.
 
 ## Important notes before starting
-- This tutorial assumes you are using a clean install of Proxmox VE 7.3.
+- This tutorial assumes you are using a clean install of Proxmox VE 7.4.
+- Do **NOT** use the opt-in 6.x linux kernel, use the standard 5.15 that proxmox has by default
 - If you tried GPU-passthrough before, you absolutely **MUST** revert all of the steps you did to set that up.
 - If you only have one GPU in your system with no iGPU, your local monitor will **NOT** give you any output anymore after the system boots up. Use SSH or a serial connection if you want terminal access to your machine.
 - Most of the steps can be applied to other linux distributions, however I'm only covering Proxmox VE here.
-- You **HAVE TO** use a supported linux kernel version. Something in the range of 5.14 up to 5.18 should work. Newer kernels like 5.19 or 6.1 do **NOT** work at this point in time.
+- You **HAVE TO** use a supported linux kernel version. Something in the range of 5.14 up to 6.0 should work. Newer kernels like 6.1 or 6.2 do **NOT** work at this point in time.
 
 > ## Are you upgrading from a previous version of this guide?
 >
@@ -276,7 +279,7 @@ I've created a small video tutorial to find the right driver version on the NVID
 
 ![Video Tutorial to find the right driver](downloading_driver.mp4)
 
-After downloading, extract the zip file and then copy the file called `NVIDIA-Linux-x86_64-DRIVERVERSION-vgpu-kvm.run` (where DRIVERVERSION is a string like `525.85.27`) from the `Host_Drivers` folder to your Proxmox host into the `/root/` folder using tools like FileZilla, WinSCP, scp or rsync.
+After downloading, extract the zip file and then copy the file called `NVIDIA-Linux-x86_64-DRIVERVERSION-vgpu-kvm.run` (where DRIVERVERSION is a string like `525.85.07`) from the `Host_Drivers` folder to your Proxmox host into the `/root/` folder using tools like FileZilla, WinSCP, scp or rsync.
 
 ### ⚠️ From here on, I will be using the 15.1 driver, but the steps are the same for other driver versions
 
@@ -292,8 +295,8 @@ Every step where you potentially have to replace the version name will have this
 >
 > ⚠️
 > ```bash
-> chmod +x NVIDIA-Linux-x86_64-525.85.27-vgpu-kvm.run
-> ./NVIDIA-Linux-x86_64-525.85.27-vgpu-kvm.run --dkms
+> chmod +x NVIDIA-Linux-x86_64-525.85.07-vgpu-kvm.run
+> ./NVIDIA-Linux-x86_64-525.85.07-vgpu-kvm.run --dkms
 > ```
 >
 > To finish the installation, reboot the system
@@ -309,21 +312,21 @@ Now, on the proxmox host, make the driver executable
 
 ⚠️
 ```bash
-chmod +x NVIDIA-Linux-x86_64-525.85.27-vgpu-kvm.run
+chmod +x NVIDIA-Linux-x86_64-525.85.07-vgpu-kvm.run
 ```
 
 And then patch it
 
 ⚠️
 ```bash
-./NVIDIA-Linux-x86_64-525.85.27-vgpu-kvm.run --apply-patch ~/vgpu-proxmox/525.85.27.patch
+./NVIDIA-Linux-x86_64-525.85.07-vgpu-kvm.run --apply-patch ~/vgpu-proxmox/525.85.07.patch
 ```
 That should output a lot of lines ending with
 ```
-Self-extractible archive "NVIDIA-Linux-x86_64-525.85.27-vgpu-kvm-custom.run" successfully created.
+Self-extractible archive "NVIDIA-Linux-x86_64-525.85.07-vgpu-kvm-custom.run" successfully created.
 ```
 
-You should now have a file called `NVIDIA-Linux-x86_64-525.85.27-vgpu-kvm-custom.run`, that is your patched driver.
+You should now have a file called `NVIDIA-Linux-x86_64-525.85.07-vgpu-kvm-custom.run`, that is your patched driver.
 
 ### Installing the driver
 
@@ -331,7 +334,7 @@ Now that the required patch is applied, you can install the driver
 
 ⚠️
 ```bash
-./NVIDIA-Linux-x86_64-525.85.27-vgpu-kvm-custom.run --dkms
+./NVIDIA-Linux-x86_64-525.85.07-vgpu-kvm-custom.run --dkms
 ```
 
 The installer will ask you `Would you like to register the kernel module sources with DKMS? This will allow DKMS to automatically build a new module, if you install a different kernel later.`, answer with `Yes`.
@@ -340,7 +343,7 @@ Depending on your hardware, the installation could take a minute or two.
 
 If everything went right, you will be presented with this message.
 ```
-Installation of the NVIDIA Accelerated Graphics Driver for Linux-x86_64 (version: 525.85.27) is now complete.
+Installation of the NVIDIA Accelerated Graphics Driver for Linux-x86_64 (version: 525.85.07) is now complete.
 ```
 
 Click `Ok` to exit the installer.
@@ -361,7 +364,7 @@ You should get an output similar to this one
 ```
 Tue Jan 24 20:21:28 2023
 +-----------------------------------------------------------------------------+
-| NVIDIA-SMI 525.85.27    Driver Version: 525.85.27    CUDA Version: N/A      |
+| NVIDIA-SMI 525.85.07    Driver Version: 525.85.07    CUDA Version: N/A      |
 |-------------------------------+----------------------+----------------------+
 | GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
 | Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
@@ -418,7 +421,7 @@ If everything worked right with the unlock, the output should be similar to this
 ```
 Tue Jan 24 20:21:43 2023
 +-----------------------------------------------------------------------------+
-| NVIDIA-SMI 525.85.27              Driver Version: 525.85.27                 |
+| NVIDIA-SMI 525.85.07              Driver Version: 525.85.07                 |
 |---------------------------------+------------------------------+------------+
 | GPU  Name                       | Bus-Id                       | GPU-Util   |
 |      vGPU ID     Name           | VM ID     VM Name            | vGPU-Util  |
