@@ -571,42 +571,6 @@ Here are some common framebuffer sizes that you might want to use:
 
 `framebuffer` and `framebuffer_reservation` will always equal the VRAM size in bytes when added together.
 
-### Spoofing your vGPU instance
-
-#### Note: This only works on Windows guests, don't bother trying on Linux.
-
-You can very easily spoof your virtual GPU to a different card, so that you could install normal quadro drivers instead of the GRID drivers that require licensing.
-
-For that you just have to add two lines to the override config. In this example I'm spoofing my Turing based card to a normal RTX 6000 Quadro card:
-```toml
-[profile.nvidia-259]
-# insert all of your other overrides here too
-pci_device_id = 0x1E30
-pci_id = 0x1E3012BA
-```
-
-`pci_device_id` is the pci id from the card you want to spoof to. In my case its `0x1E30` which is the `Quadro RTX 6000/8000`.
-
-`pci_id` can be split in two parts: `0x1E30 12BA`, the first part `0x1E30` has to be the same as `pci_device_id`. The second part is the subdevice id. In my case `12BA` means its a RTX 6000 card and not RTX 8000.
-
-You can get the IDs from [here](https://pci-ids.ucw.cz/read/PC/10de/). Just Ctrl+F and search the card you want to spoof to, then copy the id it shows you on the left and use it for `pci_device_id`.
-
-After doing that, click the same id, it should open a new page where it lists the subsystems. If there are none listed, you must use `0000` as the second value for `pci_id`. But if there are some, you have to select the one you want and use its id as the second value for `pci_id` (see above).
-
-## Important note when spoofing
-
-You have to pick a Quadro Driver from the same driver branch, so in this case R525. Using newer drivers will **NOT WORK** and maybe even make your VM crash.
-
-If you accidentally installed such a driver, its best to either remove the driver completely using DDU or just install a fresh windows VM.
-
-The quadro driver for R525 branch can be found [here (for 527.27)](https://www.nvidia.com/Download/driverResults.aspx/196728/en-us/).
-
-## Drawbacks to spoofing
-
-- You do not have **ANY** CUDA support
-- It only works for Windows VMs
-- FRL (Framerate limiter) does not work, so no matter what settings you use for `frl_config`, it doesn't apply
-
 ## Adding a vGPU to a Proxmox VM
 
 Go to the proxmox webinterface, go to your VM, then to `Hardware`, then to `Add` and select `PCI Device`.
@@ -617,6 +581,12 @@ Now you should be able to also select the `MDev Type`. Choose whatever profile y
 Finish by clicking `Add`, start the VM and install the required drivers. After installing the drivers you can shut the VM down and remove the virtual display adapter by selecting `Display` in the `Hardware` section and selecting `none (none)`. ONLY do that if you have some other way to access the Virtual Machine like Parsec or Remote Desktop because the Proxmox Console won't work anymore.
 
 Enjoy your new vGPU VM :)
+
+## Licensing
+
+Usually a license is required to use vGPU, but luckily the community found several ways around that. Spoofing the vGPU instance to a Quadro GPU used to be very popular, but I don't recommend it anymore. I've also removed the related sections from this guide. If you still want it for whatever reason, you can go back in the commit history to find the instructions on how to use that.
+
+The recommended way to get around the license is to set up your own license server. Follow the instructions [here](https://git.collinwebdesigns.de/oscar.krause/fastapi-dls) (or [here](https://gitea.publichub.eu/oscar.krause/fastapi-dls) if the other link is down).
 
 ## Common problems
 
