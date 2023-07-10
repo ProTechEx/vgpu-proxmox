@@ -2,7 +2,7 @@
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/polloloco)
 
-This document serves as a guide to install NVIDIA vGPU host drivers on the latest Proxmox VE version, at time of writing this its pve 7.4.
+This document serves as a guide to install NVIDIA vGPU host drivers on the latest Proxmox VE version, at time of writing this its pve 8.0.
 
 You can follow this guide if you have a vGPU supported card from [this list](https://docs.nvidia.com/grid/gpus-supported-by-vgpu.html), or if you are using a consumer GPU from the GeForce series or a non-vGPU qualified Quadro GPU. There are several sections with a title similar to "Have a vGPU supported GPU? Read here" in this document, make sure to read those very carefully as this is where the instructions differ for a vGPU qualified card and a consumer card.
 
@@ -20,12 +20,11 @@ If you have GPUs from the Ampere and Ada Lovelace generation, you are out of luc
 This guide and all my tests were done on a RTX 2080 Ti which is based on the Turing architechture.
 
 ## Important notes before starting
-- This tutorial assumes you are using a clean install of Proxmox VE 7.4.
-- Do **NOT** use the opt-in 6.x linux kernel, use the standard 5.15 that proxmox has by default
+- This tutorial assumes you are using a clean install of Proxmox VE 8.0.
+- If you are using Proxmox VE 8.0, you **MUST** use 16.x drivers. Older versions only work with pve 7
 - If you tried GPU-passthrough before, you absolutely **MUST** revert all of the steps you did to set that up.
 - If you only have one GPU in your system with no iGPU, your local monitor will **NOT** give you any output anymore after the system boots up. Use SSH or a serial connection if you want terminal access to your machine.
 - Most of the steps can be applied to other linux distributions, however I'm only covering Proxmox VE here.
-- You **HAVE TO** use a supported linux kernel version. Something in the range of 5.14 up to 6.0 should work. Newer kernels like 6.1 or 6.2 do **NOT** work at this point in time.
 
 > ## Are you upgrading from a previous version of this guide?
 >
@@ -40,7 +39,7 @@ This guide and all my tests were done on a RTX 2080 Ti which is based on the Tur
 Make sure to add the community pve repo and get rid of the enterprise repo (you can skip this step if you have a valid enterprise subscription)
 
 ```bash
-echo "deb http://download.proxmox.com/debian/pve bullseye pve-no-subscription" >> /etc/apt/sources.list
+echo "deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription" >> /etc/apt/sources.list
 rm /etc/apt/sources.list.d/pve-enterprise.list
 ```
 
@@ -257,15 +256,14 @@ Depending on your mainboard and cpu, the output will be different, in my output 
 This repo contains patches that allow you to use vGPU on not-qualified-vGPU cards (consumer GPUs). Those patches are binary patches, which means that each patch works **ONLY** for a specific driver version.
 
 I've created patches for the following driver versions:
+- 16.0 (535.54.06) - Use this if you are on pve 8.0 (kernel 6.2)
 - 15.1 (525.85.07)
 - 15.0 (525.60.12)
 - 14.4 (510.108.03)
 - 14.3 (510.108.03)
 - 14.2 (510.85.03)
 
-You can choose which of those you want to use, but generally its recommended to use the latest, most up-to-date version (15.1 in this case).
-
-However, with the 15.0 version, some Proxmox users were experiencing issues after restarting VMs multiple times, the only way to resolve those was to reboot the whole host machine. If you are affected by this, I recommend that you downgrade to 14.4.
+You can choose which of those you want to use, but generally its recommended to use the latest, most up-to-date version (16.0 in this case).
 
 If you have a vGPU qualified GPU, you can use other versions too, because you don't need to patch the driver. However, you still have to make sure they are compatible with your proxmox version and kernel. Also I would not recommend using any older versions unless you have a very specific requirement.
 
@@ -279,11 +277,11 @@ I've created a small video tutorial to find the right driver version on the NVID
 
 ![Video Tutorial to find the right driver](downloading_driver.mp4)
 
-After downloading, extract the zip file and then copy the file called `NVIDIA-Linux-x86_64-DRIVERVERSION-vgpu-kvm.run` (where DRIVERVERSION is a string like `525.85.07`) from the `Host_Drivers` folder to your Proxmox host into the `/root/` folder using tools like FileZilla, WinSCP, scp or rsync.
+After downloading, extract the zip file and then copy the file called `NVIDIA-Linux-x86_64-DRIVERVERSION-vgpu-kvm.run` (where DRIVERVERSION is a string like `535.54.06`) from the `Host_Drivers` folder to your Proxmox host into the `/root/` folder using tools like FileZilla, WinSCP, scp or rsync.
 
-### ⚠️ From here on, I will be using the 15.1 driver, but the steps are the same for other driver versions
+### ⚠️ From here on, I will be using the 16.0 driver, but the steps are the same for other driver versions
 
-For example when I run a command like `chmod +x NVIDIA-Linux-x86_64-525.85.07-vgpu-kvm.run`, you should replace `525.85.07` with the driver version you are using (if you are using a different one). You can get the list of version numbers [here](#nvidia-driver).
+For example when I run a command like `chmod +x NVIDIA-Linux-x86_64-535.54.06-vgpu-kvm.run`, you should replace `535.54.06` with the driver version you are using (if you are using a different one). You can get the list of version numbers [here](#nvidia-driver).
 
 Every step where you potentially have to replace the version name will have this warning emoji next to it: ⚠️
 
@@ -295,8 +293,8 @@ Every step where you potentially have to replace the version name will have this
 >
 > ⚠️
 > ```bash
-> chmod +x NVIDIA-Linux-x86_64-525.85.07-vgpu-kvm.run
-> ./NVIDIA-Linux-x86_64-525.85.07-vgpu-kvm.run --dkms
+> chmod +x NVIDIA-Linux-x86_64-535.54.06-vgpu-kvm.run
+> ./NVIDIA-Linux-x86_64-535.54.06-vgpu-kvm.run --dkms
 > ```
 >
 > To finish the installation, reboot the system
@@ -312,21 +310,21 @@ Now, on the proxmox host, make the driver executable
 
 ⚠️
 ```bash
-chmod +x NVIDIA-Linux-x86_64-525.85.07-vgpu-kvm.run
+chmod +x NVIDIA-Linux-x86_64-535.54.06-vgpu-kvm.run
 ```
 
 And then patch it
 
 ⚠️
 ```bash
-./NVIDIA-Linux-x86_64-525.85.07-vgpu-kvm.run --apply-patch ~/vgpu-proxmox/525.85.07.patch
+./NVIDIA-Linux-x86_64-535.54.06-vgpu-kvm.run --apply-patch ~/vgpu-proxmox/535.54.06.patch
 ```
 That should output a lot of lines ending with
 ```
-Self-extractible archive "NVIDIA-Linux-x86_64-525.85.07-vgpu-kvm-custom.run" successfully created.
+Self-extractible archive "NVIDIA-Linux-x86_64-535.54.06-vgpu-kvm-custom.run" successfully created.
 ```
 
-You should now have a file called `NVIDIA-Linux-x86_64-525.85.07-vgpu-kvm-custom.run`, that is your patched driver.
+You should now have a file called `NVIDIA-Linux-x86_64-535.54.06-vgpu-kvm-custom.run`, that is your patched driver.
 
 ### Installing the driver
 
@@ -334,7 +332,7 @@ Now that the required patch is applied, you can install the driver
 
 ⚠️
 ```bash
-./NVIDIA-Linux-x86_64-525.85.07-vgpu-kvm-custom.run --dkms
+./NVIDIA-Linux-x86_64-535.54.06-vgpu-kvm-custom.run --dkms
 ```
 
 The installer will ask you `Would you like to register the kernel module sources with DKMS? This will allow DKMS to automatically build a new module, if you install a different kernel later.`, answer with `Yes`.
@@ -343,7 +341,7 @@ Depending on your hardware, the installation could take a minute or two.
 
 If everything went right, you will be presented with this message.
 ```
-Installation of the NVIDIA Accelerated Graphics Driver for Linux-x86_64 (version: 525.85.07) is now complete.
+Installation of the NVIDIA Accelerated Graphics Driver for Linux-x86_64 (version: 535.54.06) is now complete.
 ```
 
 Click `Ok` to exit the installer.
