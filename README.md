@@ -273,6 +273,8 @@ NVIDIA doesn't let you freely download vGPU drivers like they do with GeForce or
 
 NB: When applying for an eval license, do NOT use your personal email or other email at a free email provider like gmail.com. You will probably have to go through manual review if you use such emails. I have very good experience using a custom domain for my email address, that way the automatic verification usually lets me in after about five minutes.
 
+HERE IS ALTERNETIVE GIT SOURCE FOR THE DRIVERS: https://github.com/justin-himself/NVIDIA-VGPU-Driver-Archive
+
 I've created a small video tutorial to find the right driver version on the NVIDIA Enterprise Portal. In the video I'm downloading the 15.0 driver, if you want a different one just replace 15.0 with the version you want:
 
 ![Video Tutorial to find the right driver](downloading_driver.mp4)
